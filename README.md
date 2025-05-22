@@ -6,6 +6,10 @@
 
 This WordPress plugin provides a settings page in the admin area to override the date returned by the `themeisle_sdk_current_date` filter. This is primarily intended for testing purposes, allowing developers or administrators to simulate different dates, especially around Black Friday and Cyber Monday sales periods, without changing the server's actual date.
 
+## Download
+
+You can download the latest version of this plugin [here](https://github.com/Soare-Robert-Daniel/test-black-friday/archive/refs/heads/main.zip).
+
 ## Features
 
 - **Admin Settings Page**: Adds a "Test Black Friday" menu item in the WordPress admin dashboard.
