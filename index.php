@@ -32,6 +32,42 @@ function test_black_friday_date_admin_page() {
         $swap_domain = sanitize_text_field($_POST['themeisle_sdk_blackfriday_swap_domain'] ?? '');
         update_option('themeisle_sdk_blackfriday_swap_domain', $swap_domain);
         
+        // Handle license data updates
+        if (isset($_POST['license_data_updates']) && is_array($_POST['license_data_updates'])) {
+            $valid_statuses = array('valid', 'expired', 'active-expired', 'invalid');
+            foreach ($_POST['license_data_updates'] as $option_name => $new_status) {
+                $new_status = sanitize_text_field($new_status);
+                if (in_array($new_status, $valid_statuses, true)) {
+                    $current_data = get_option($option_name);
+                    if (is_object($current_data) || is_array($current_data)) {
+                        $current_data = (object) $current_data;
+                        $current_data->license = $new_status;
+                        update_option($option_name, $current_data);
+                        
+                        // Update related transient with same data (preserve existing timeout or set 1 hour)
+                        global $wpdb;
+                        $transient_name = $option_name;
+                        $timeout_option_name = '_transient_timeout_' . $option_name;
+                        
+                        // Get the current transient timeout if it exists
+                        $current_timeout = get_option($timeout_option_name);
+                        $transient_ttl = 3600; // Default 1 hour
+                        
+                        if ($current_timeout && is_numeric($current_timeout)) {
+                            // Calculate remaining TTL from stored timeout
+                            $remaining_ttl = $current_timeout - time();
+                            if ($remaining_ttl > 0) {
+                                $transient_ttl = $remaining_ttl;
+                            }
+                        }
+                        
+                        // Update the transient with the new data
+                        set_transient($transient_name, $current_data, $transient_ttl);
+                    }
+                }
+            }
+        }
+        
         echo '<div class="updated"><p>Settings saved.</p></div>';
     }
     $saved_date = get_option('test_black_friday_date', '');
@@ -96,6 +132,91 @@ function test_black_friday_date_admin_page() {
                     <button type="button" class="button" onclick="document.getElementById('themeisle_sdk_blackfriday_swap_domain').value = 'themeisle-links.r.optml.cloud';">Set to themeisle-links.r.optml.cloud</button>
                     <button type="button" class="button button-link" onclick="document.getElementById('themeisle_sdk_blackfriday_swap_domain').value = '';">Clear Domain</button>
                 </div>
+            </div>
+
+            <!-- License Testing Section -->
+            <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 18px;">License Testing</h2>
+                <p class="description" style="margin: 0 0 15px 0;">Modify license status for different testing scenarios.</p>
+                
+                <?php
+                global $wpdb;
+                // Get all options ending with _license_data (excluding transients)
+                $license_options = $wpdb->get_col(
+                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE '%_license_data' AND option_name NOT LIKE '%_transient_%'"
+                );
+                
+                if (empty($license_options)) {
+                    echo '<p style="background: #fff8e5; border-left: 4px solid #ffb900; padding: 12px; border-radius: 4px; margin: 0;">No license data options found in the database.</p>';
+                } else {
+                    ?>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Option Name</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Current Status</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">License Key</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Change Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $license_statuses = array('valid', 'expired', 'active-expired', 'invalid');
+                            foreach ($license_options as $option_name) {
+                                $license_data = get_option($option_name);
+                                $current_status = '';
+                                $license_key = '';
+                                
+                                if (is_object($license_data)) {
+                                    $current_status = isset($license_data->license) ? $license_data->license : 'unknown';
+                                    $license_key = isset($license_data->key) ? $license_data->key : '';
+                                } elseif (is_array($license_data)) {
+                                    $current_status = isset($license_data['license']) ? $license_data['license'] : 'unknown';
+                                    $license_key = isset($license_data['key']) ? $license_data['key'] : '';
+                                }
+                                
+                                // Redact the key for display
+                                $key_display = !empty($license_key) ? substr($license_key, 0, 10) . '...' . substr($license_key, -10) : 'N/A';
+                                ?>
+                                <tr style="border-bottom: 1px solid #ddd;">
+                                    <td style="padding: 10px; font-family: monospace; font-size: 12px; word-break: break-all;"><?php echo esc_html($option_name); ?></td>
+                                    <td style="padding: 10px;">
+                                        <span style="display: inline-block; padding: 4px 10px; border-radius: 3px; font-size: 12px; font-weight: 600;
+                                            <?php
+                                            if ($current_status === 'valid') {
+                                                echo 'background: #d4edda; color: #155724;';
+                                            } elseif ($current_status === 'expired') {
+                                                echo 'background: #f8d7da; color: #721c24;';
+                                            } elseif ($current_status === 'active-expired') {
+                                                echo 'background: #fff3cd; color: #856404;';
+                                            } else {
+                                                echo 'background: #f5f5f5; color: #333;';
+                                            }
+                                            ?>
+                                        ">
+                                            <?php echo esc_html($current_status); ?>
+                                        </span>
+                                    </td>
+                                    <td style="padding: 10px; font-family: monospace; font-size: 11px; color: #666;"><?php echo esc_html($key_display); ?></td>
+                                    <td style="padding: 10px;">
+                                        <select name="license_data_updates[<?php echo esc_attr($option_name); ?>]" style="padding: 5px; border: 1px solid #ddd; border-radius: 3px;">
+                                            <option value="">-- Select Status --</option>
+                                            <?php foreach ($license_statuses as $status) : ?>
+                                                <option value="<?php echo esc_attr($status); ?>" <?php selected($current_status, $status); ?>>
+                                                    <?php echo esc_html(ucwords(str_replace('-', ' ', $status))); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <?php
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                    <?php
+                }
+                ?>
             </div>
 
             <input type="submit" class="button button-primary" value="Save Settings" style="margin-top: 10px;">
