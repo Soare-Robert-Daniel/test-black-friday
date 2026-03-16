@@ -68,6 +68,20 @@ function test_black_friday_date_admin_page() {
             }
         }
         
+        // Handle install data updates
+        if (isset($_POST['install_data_updates']) && is_array($_POST['install_data_updates'])) {
+            foreach ($_POST['install_data_updates'] as $option_name => $new_date) {
+                $new_date = sanitize_text_field($new_date);
+                if (!empty($new_date)) {
+                    // Convert date string to timestamp
+                    $timestamp = strtotime($new_date);
+                    if ($timestamp !== false) {
+                        update_option($option_name, $timestamp);
+                    }
+                }
+            }
+        }
+        
         echo '<div class="updated"><p>Settings saved.</p></div>';
     }
     $saved_date = get_option('test_black_friday_date', '');
@@ -219,10 +233,111 @@ function test_black_friday_date_admin_page() {
                 ?>
             </div>
 
+            <!-- Install Data Testing Section -->
+            <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 18px;">Install Data</h2>
+                <p class="description" style="margin: 0 0 15px 0;">Modify install timestamps for testing install age-based features.</p>
+                
+                <?php
+                global $wpdb;
+                // Get all options ending with _install (excluding transients)
+                $install_options = $wpdb->get_col(
+                    "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE '%_install' AND option_name NOT LIKE '%_transient_%' ORDER BY option_name ASC"
+                );
+                
+                if (empty($install_options)) {
+                    echo '<p style="background: #fff8e5; border-left: 4px solid #ffb900; padding: 12px; border-radius: 4px; margin: 0;">No install data options found in the database.</p>';
+                } else {
+                    ?>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+                        <thead>
+                            <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Option Name</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Timestamp</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Install Date</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Age</th>
+                                <th style="padding: 10px; text-align: left; font-weight: 600;">Change Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            foreach ($install_options as $option_name) {
+                                $timestamp = get_option($option_name);
+                                $is_valid_timestamp = is_numeric($timestamp) && (int)$timestamp == $timestamp && (int)$timestamp > 0;
+                                
+                                if ($is_valid_timestamp) {
+                                    $timestamp = (int)$timestamp;
+                                    $install_date = date('Y-m-d H:i:s', $timestamp);
+                                    $date_only = date('Y-m-d', $timestamp);
+                                    
+                                    // Calculate age
+                                    $now = time();
+                                    $diff = $now - $timestamp;
+                                    $age = test_black_friday_format_time_diff($diff);
+                                    ?>
+                                    <tr style="border-bottom: 1px solid #ddd;">
+                                        <td style="padding: 10px; font-family: monospace; font-size: 12px; word-break: break-all;"><?php echo esc_html($option_name); ?></td>
+                                        <td style="padding: 10px; font-family: monospace; font-size: 12px;"><?php echo esc_html($timestamp); ?></td>
+                                        <td style="padding: 10px; font-size: 13px;"><?php echo esc_html($install_date); ?></td>
+                                        <td style="padding: 10px; font-size: 13px; font-weight: 500;">
+                                            <span style="display: inline-block; padding: 4px 8px; border-radius: 3px; background: #e7f3ff; color: #0066cc;">
+                                                <?php echo esc_html($age); ?>
+                                            </span>
+                                        </td>
+                                        <td style="padding: 10px;">
+                                            <input type="date" name="install_data_updates[<?php echo esc_attr($option_name); ?>]" value="<?php echo esc_attr($date_only); ?>" style="padding: 5px; border: 1px solid #ddd; border-radius: 3px; width: 150px;">
+                                        </td>
+                                    </tr>
+                                    <?php
+                                }
+                            }
+                            ?>
+                        </tbody>
+                    </table>
+                    <?php
+                }
+                ?>
+            </div>
+
             <input type="submit" class="button button-primary" value="Save Settings" style="margin-top: 10px;">
         </form>
     </div>
     <?php
+}
+
+/**
+ * Format a time difference in seconds into a human-readable string
+ * e.g., "3 days, 2 hours" or "45 minutes"
+ */
+function test_black_friday_format_time_diff($seconds) {
+    $seconds = (int)$seconds;
+    
+    if ($seconds < 60) {
+        return $seconds . ' second' . ($seconds !== 1 ? 's' : '');
+    }
+    
+    $minutes = floor($seconds / 60);
+    if ($minutes < 60) {
+        return $minutes . ' minute' . ($minutes !== 1 ? 's' : '');
+    }
+    
+    $hours = floor($seconds / 3600);
+    if ($hours < 24) {
+        $remaining_minutes = floor(($seconds % 3600) / 60);
+        $result = $hours . ' hour' . ($hours !== 1 ? 's' : '');
+        if ($remaining_minutes > 0) {
+            $result .= ', ' . $remaining_minutes . ' minute' . ($remaining_minutes !== 1 ? 's' : '');
+        }
+        return $result;
+    }
+    
+    $days = floor($seconds / 86400);
+    $remaining_hours = floor(($seconds % 86400) / 3600);
+    $result = $days . ' day' . ($days !== 1 ? 's' : '');
+    if ($remaining_hours > 0) {
+        $result .= ', ' . $remaining_hours . ' hour' . ($remaining_hours !== 1 ? 's' : '');
+    }
+    return $result;
 }
 
 // Filter to override the date
