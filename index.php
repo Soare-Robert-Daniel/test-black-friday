@@ -234,9 +234,12 @@ function test_black_friday_date_admin_page() {
             </div>
 
             <!-- Install Data Testing Section -->
-            <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 18px;">Install Data</h2>
-                <p class="description" style="margin: 0 0 15px 0;">Modify install timestamps for testing install age-based features.</p>
+             <div style="background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                 <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 18px;">Install Data</h2>
+                 <p class="description" style="margin: 0 0 15px 0;">Modify install timestamps for testing install age-based features.</p>
+                 <p style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px; border-radius: 4px; margin: 0 0 15px 0; font-size: 13px;">
+                     <strong>Reference Time:</strong> Age calculations use the same reference date as the SDK (<strong id="reference-date-display"></strong>). Override the date above to test different install age scenarios.
+                 </p>
                 
                 <?php
                 global $wpdb;
@@ -261,6 +264,11 @@ function test_black_friday_date_admin_page() {
                         </thead>
                         <tbody>
                             <?php
+                            // Use the same filtered current date that SDK uses for comparisons
+                            $reference_date = apply_filters('themeisle_sdk_current_date', new \DateTime('now'));
+                            $reference_timestamp = $reference_date->getTimestamp();
+                            $reference_date_display = $reference_date->format('Y-m-d H:i:s');
+                            
                             foreach ($install_options as $option_name) {
                                 $timestamp = get_option($option_name);
                                 $is_valid_timestamp = is_numeric($timestamp) && (int)$timestamp == $timestamp && (int)$timestamp > 0;
@@ -270,9 +278,8 @@ function test_black_friday_date_admin_page() {
                                     $install_date = date('Y-m-d H:i:s', $timestamp);
                                     $date_only = date('Y-m-d', $timestamp);
                                     
-                                    // Calculate age
-                                    $now = time();
-                                    $diff = $now - $timestamp;
+                                    // Calculate age using the same reference time as the SDK
+                                    $diff = $reference_timestamp - $timestamp;
                                     $age = test_black_friday_format_time_diff($diff);
                                     ?>
                                     <tr style="border-bottom: 1px solid #ddd;">
@@ -294,6 +301,10 @@ function test_black_friday_date_admin_page() {
                             ?>
                         </tbody>
                     </table>
+                    <script>
+                        // Display the reference date being used for age calculations
+                        document.getElementById('reference-date-display').textContent = '<?php echo esc_js($reference_date_display); ?>';
+                    </script>
                     <?php
                 }
                 ?>
