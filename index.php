@@ -364,7 +364,7 @@ add_filter('themeisle_sdk_current_date', function($date) {
     }
     // Ensure time is set for 'now' as well for consistency
     return new \DateTime('now');
-});
+}, 999);
 
 
 add_filter( 'themeisle_sdk_blackfriday_data', function( $configs )  {
