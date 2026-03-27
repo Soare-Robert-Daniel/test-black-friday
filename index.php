@@ -26,6 +26,12 @@ function test_black_friday_date_admin_page() {
     }
     // Handle form submission
     if (isset($_POST['test_black_friday_date_nonce']) && wp_verify_nonce($_POST['test_black_friday_date_nonce'], 'test_black_friday_date_save')) {
+        // Handle clearing dismissed notice
+        if (isset($_POST['clear_dismissed_notice']) && $_POST['clear_dismissed_notice'] === '1') {
+            delete_user_meta(get_current_user_id(), 'themeisle_sdk_dismissed_notice_black_friday');
+            echo '<div class="updated"><p>Black Friday notice dismissal cleared for current user.</p></div>';
+        }
+        
         $date = sanitize_text_field($_POST['test_black_friday_date'] ?? '');
         update_option('test_black_friday_date', $date);
         
@@ -125,11 +131,19 @@ function test_black_friday_date_admin_page() {
                 </div>
                 <p class="description" style="margin: 5px 0 15px 0;">Leave blank to use the current date. Use this option to modify the SDK time to trigger the display of the Black Friday notices.</p>
                 
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
                     <button type="button" class="button" onclick="document.getElementById('test_black_friday_date').value = '<?php echo esc_js($sale_start_date_str); ?>';">Set to Sale Start (<?php echo esc_html($sale_start->format('M j')); ?>)</button>
                     <button type="button" class="button" onclick="document.getElementById('test_black_friday_date').value = '<?php echo esc_js($black_friday_date_str); ?>';">Set to Black Friday (<?php echo esc_html($black_friday_day->format('M j')); ?>)</button>
                     <button type="button" class="button" onclick="document.getElementById('test_black_friday_date').value = '<?php echo esc_js($sale_end_date_str); ?>';">Set to Sale End (<?php echo esc_html($sale_end->format('M j')); ?>)</button>
                     <button type="button" class="button button-link" onclick="document.getElementById('test_black_friday_date').value = '';">Clear Date</button>
+                </div>
+                
+                <!-- Clear Dismissed Notice -->
+                <div style="border-top: 1px solid #ddd; padding-top: 15px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 14px;">Clear Dismissed Notice</h3>
+                    <p class="description" style="margin: 0 0 10px 0;">If you've dismissed the Black Friday notice, use this button to clear that dismissal and see the notice again.</p>
+                    <input type="hidden" name="clear_dismissed_notice" value="1">
+                    <button type="submit" class="button button-secondary" style="background: #dc3545; color: white; border-color: #dc3545;">Clear Dismissal for Current User</button>
                 </div>
             </div>
 
